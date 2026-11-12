@@ -51,3 +51,6 @@
 	path = src/tpde
 	url = https://github.com/rust-lang/tpde.git
 	shallow = true
+[submodule "rustc_codegen_tpde"]
+	path = compiler/rustc_codegen_tpde
+	url = https://github.com/jonastahl/RustcTpde
