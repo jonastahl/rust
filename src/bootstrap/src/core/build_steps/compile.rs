@@ -1825,6 +1825,79 @@ impl CommandLineStep for CraneliftCodegenBackend {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TpdeCodegenBackend {
+    pub compilers: RustcPrivateCompilers,
+}
+
+impl CommandLineStep for TpdeCodegenBackend {
+    type Output = BuildStamp;
+    const IS_HOST: bool = true;
+
+    fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
+        run.alias("rustc_codegen_tpde").alias("cg_tpde")
+    }
+
+    fn make_run(run: RunConfig<'_>) {
+        run.builder.ensure(TpdeCodegenBackend {
+            compilers: RustcPrivateCompilers::new(run.builder, run.builder.top_stage, run.target),
+        });
+    }
+
+    fn run(self, builder: &Builder<'_>) -> Self::Output {
+        let target = self.compilers.target();
+        let build_compiler = self.compilers.build_compiler();
+
+        let stamp = build_stamp::codegen_backend_stamp(
+            builder,
+            build_compiler,
+            target,
+            &CodegenBackendKind::Tpde,
+        );
+
+        if builder.config.keep_stage.contains(&build_compiler.stage) {
+            trace!("`keep-stage` requested");
+            builder.info(
+                "WARNING: Using a potentially old codegen backend. \
+                This may not behave well.",
+            );
+            // Codegen backends are linked separately from this step today, so we don't do
+            // anything here.
+            return stamp;
+        }
+
+        let mut cargo = builder::Cargo::new(
+            builder,
+            build_compiler,
+            Mode::Codegen,
+            SourceType::Submodule,
+            target,
+            Kind::Build,
+        );
+        cargo
+            .arg("--manifest-path")
+            .arg(builder.src.join("compiler/rustc_codegen_tpde/Cargo.toml"));
+        apply_dylib_lto(builder, &build_compiler, &mut cargo);
+
+        let _guard = builder.msg(
+            Kind::Build,
+            "codegen backend tpde",
+            Mode::Codegen,
+            build_compiler,
+            target,
+        );
+        let files = run_cargo(builder, cargo, vec![], &stamp, vec![], ArtifactKeepMode::OnlyDylib);
+        write_codegen_backend_stamp(stamp, files, builder.config.dry_run())
+    }
+
+    fn metadata(&self) -> Option<StepMetadata> {
+        Some(
+            StepMetadata::build("rustc_codegen_tpde", self.compilers.target())
+                .built_by(self.compilers.build_compiler()),
+        )
+    }
+}
+
 /// Write filtered `files` into the passed build stamp and returns it.
 fn write_codegen_backend_stamp(
     mut stamp: BuildStamp,
@@ -2425,6 +2498,11 @@ impl CommandLineStep for Assemble {
                 };
 
                 match backend {
+                    CodegenBackendKind::Tpde => {
+                        let stamp = builder
+                            .ensure(TpdeCodegenBackend { compilers: prepare_compilers() });
+                        copy_codegen_backends_to_sysroot(builder, stamp, target_compiler);
+                    }
                     CodegenBackendKind::Cranelift => {
                         let stamp = builder
                             .ensure(CraneliftCodegenBackend { compilers: prepare_compilers() });

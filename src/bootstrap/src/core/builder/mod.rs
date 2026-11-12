@@ -776,6 +776,7 @@ impl<'a> Builder<'a> {
                 compile::Rustc,
                 compile::Assemble,
                 compile::CraneliftCodegenBackend,
+                compile::TpdeCodegenBackend,
                 compile::GccCodegenBackend,
                 compile::StartupObjects,
                 tool::BuildManifest,

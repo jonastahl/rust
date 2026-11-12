@@ -7,6 +7,7 @@ pub enum CodegenBackendKind {
     Llvm,
     Cranelift,
     Gcc,
+    Tpde,
     Custom(String),
 }
 
@@ -18,6 +19,7 @@ impl CodegenBackendKind {
             CodegenBackendKind::Llvm => "llvm",
             CodegenBackendKind::Cranelift => "cranelift",
             CodegenBackendKind::Gcc => "gcc",
+            CodegenBackendKind::Tpde => "tpde",
             CodegenBackendKind::Custom(name) => name,
         }
     }
@@ -42,6 +44,7 @@ impl FromStr for CodegenBackendKind {
             "gcc" => Ok(Self::Gcc),
             "llvm" => Ok(Self::Llvm),
             "cranelift" => Ok(Self::Cranelift),
+            "tpde" => Ok(Self::Tpde),
             _ => Ok(Self::Custom(s.to_string())),
         }
     }

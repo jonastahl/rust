@@ -430,7 +430,7 @@ pub fn check_incompatible_options_for_ci_rustc(
     Ok(())
 }
 
-pub(crate) const BUILTIN_CODEGEN_BACKENDS: &[&str] = &["llvm", "cranelift", "gcc"];
+pub(crate) const BUILTIN_CODEGEN_BACKENDS: &[&str] = &["llvm", "cranelift", "gcc", "tpde"];
 
 /// FIXME(Zalathar): This is partly redundant with the parsing code in [`CodegenBackendKind`].
 pub(crate) fn parse_codegen_backends(
@@ -452,6 +452,7 @@ pub(crate) fn parse_codegen_backends(
             "llvm" => CodegenBackendKind::Llvm,
             "cranelift" => CodegenBackendKind::Cranelift,
             "gcc" => CodegenBackendKind::Gcc,
+            "tpde" => CodegenBackendKind::Tpde,
             backend => CodegenBackendKind::Custom(backend.to_string()),
         };
 

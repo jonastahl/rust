@@ -12,6 +12,7 @@ pub fn filter_dirs(path: &Path) -> bool {
         "tidy-test-file",
         "compiler/rustc_codegen_cranelift",
         "compiler/rustc_codegen_gcc",
+        "compiler/rustc_codegen_tpde",
         "src/llvm-project",
         "library/backtrace",
         "library/compiler-builtins",
