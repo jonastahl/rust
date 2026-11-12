@@ -986,6 +986,7 @@ impl<'a> Builder<'a> {
                 dist::Mingw,
                 dist::Rustc,
                 dist::CraneliftCodegenBackend,
+                dist::TpdeCodegenBackend,
                 dist::GccCodegenBackend,
                 dist::Std,
                 dist::RustcDev,
@@ -1031,6 +1032,7 @@ impl<'a> Builder<'a> {
                 install::LlvmTools,
                 install::Src,
                 install::RustcCodegenCranelift,
+                install::RustcCodegenTpde,
                 install::LlvmBitcodeLinker
             ),
             Kind::Run => describe!(

@@ -44,7 +44,8 @@ use crate::utils::build_stamp::{self, BuildStamp};
 use crate::utils::channel::{self, Info};
 use crate::utils::exec::{BootstrapCommand, command};
 use crate::utils::helpers::{
-    exe, is_dylib, move_file, t, target_supports_cranelift_backend, timeit,
+    exe, is_dylib, move_file, t, target_supports_cranelift_backend, target_supports_tpde_backend,
+    timeit,
 };
 use crate::utils::tarball::{GeneratedTarball, OverlayKind, Tarball};
 
@@ -1715,6 +1716,75 @@ impl CommandLineStep for CraneliftCodegenBackend {
     fn metadata(&self) -> Option<StepMetadata> {
         Some(
             StepMetadata::dist("rustc_codegen_cranelift", self.target)
+                .built_by(self.compilers.build_compiler()),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct TpdeCodegenBackend {
+    pub compilers: RustcPrivateCompilers,
+    pub target: TargetSelection,
+}
+
+impl CommandLineStep for TpdeCodegenBackend {
+    type Output = Option<GeneratedTarball>;
+    const IS_HOST: bool = true;
+
+    fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
+        run.alias("rustc_codegen_tpde")
+    }
+
+    fn is_default_step(builder: &Builder<'_>) -> bool {
+        // We only want to build the tpde backend in `x dist` if the backend was enabled
+        // in rust.codegen-backends.
+        // Sadly, we don't have access to the actual target for which we're disting clif here..
+        // So we just use the host target.
+        builder
+            .config
+            .enabled_codegen_backends(builder.host_target)
+            .contains(&CodegenBackendKind::Tpde)
+    }
+
+    fn make_run(run: RunConfig<'_>) {
+        run.builder.ensure(TpdeCodegenBackend {
+            compilers: RustcPrivateCompilers::new(run.builder, run.builder.top_stage, run.target),
+            target: run.target,
+        });
+    }
+
+    fn run(self, builder: &Builder<'_>) -> Option<GeneratedTarball> {
+        // This prevents rustc_codegen_tpde from being built for "dist"
+        // or "install" on the stable/beta channels. It is not yet stable and
+        // should not be included.
+        if !builder.sess.unstable_features() {
+            return None;
+        }
+
+        let target = self.target;
+        if !target_supports_tpde_backend(target) {
+            builder.info("target not supported by rustc_codegen_tpde. skipping");
+            return None;
+        }
+
+        let mut tarball = Tarball::new(builder, "rustc-codegen-tpde", &target.triple);
+        tarball.is_preview(true);
+
+        let compilers = self.compilers;
+        let stamp = builder.ensure(compile::TpdeCodegenBackend { compilers });
+
+        if builder.config.dry_run() {
+            return None;
+        }
+
+        add_codegen_backend_to_tarball(builder, &tarball, compilers.target_compiler(), &stamp);
+
+        Some(tarball.generate())
+    }
+
+    fn metadata(&self) -> Option<StepMetadata> {
+        Some(
+            StepMetadata::dist("rustc_codegen_tpde", self.target)
                 .built_by(self.compilers.build_compiler()),
         )
     }
