@@ -1879,13 +1879,8 @@ impl CommandLineStep for TpdeCodegenBackend {
             .arg(builder.src.join("compiler/rustc_codegen_tpde/Cargo.toml"));
         apply_dylib_lto(builder, &build_compiler, &mut cargo);
 
-        let _guard = builder.msg(
-            Kind::Build,
-            "codegen backend tpde",
-            Mode::Codegen,
-            build_compiler,
-            target,
-        );
+        let _guard =
+            builder.msg(Kind::Build, "codegen backend tpde", Mode::Codegen, build_compiler, target);
         let files = run_cargo(builder, cargo, vec![], &stamp, vec![], ArtifactKeepMode::OnlyDylib);
         write_codegen_backend_stamp(stamp, files, builder.config.dry_run())
     }
@@ -2499,8 +2494,8 @@ impl CommandLineStep for Assemble {
 
                 match backend {
                     CodegenBackendKind::Tpde => {
-                        let stamp = builder
-                            .ensure(TpdeCodegenBackend { compilers: prepare_compilers() });
+                        let stamp =
+                            builder.ensure(TpdeCodegenBackend { compilers: prepare_compilers() });
                         copy_codegen_backends_to_sysroot(builder, stamp, target_compiler);
                     }
                     CodegenBackendKind::Cranelift => {

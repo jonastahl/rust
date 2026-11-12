@@ -256,6 +256,10 @@ pub fn target_supports_cranelift_backend(target: TargetSelection) -> bool {
     }
 }
 
+pub fn target_supports_tpde_backend(target: TargetSelection) -> bool {
+    target.contains("linux") && target.contains("x86_64")
+}
+
 /// Value returned from [`is_valid_test_suite_arg`], which figures out which paths start with the
 /// suite name (and therefore which should be run).
 pub enum TestFilterCategory<'a> {

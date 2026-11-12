@@ -6,6 +6,7 @@
 use std::path::{Component, Path, PathBuf};
 use std::{env, fs};
 
+use crate::core::backend::CodegenBackendKind;
 use crate::core::build_steps::dist;
 use crate::core::build_steps::tool::RustcPrivateCompilers;
 use crate::core::builder::{Builder, CommandLineStep, Kind, RunConfig, ShouldRun};
@@ -299,6 +300,19 @@ install!((self, builder, _config),
         } else {
             builder.info(
                 &format!("skipping Install CodegenBackend(\"cranelift\") stage{} ({})",
+                         self.build_compiler.stage + 1, self.target),
+            );
+        }
+    };
+    RustcCodegenTpde, alias = "rustc-codegen-tpde", _config.enabled_codegen_backends(_config.host_target).contains(&CodegenBackendKind::Tpde), IS_HOST: true, {
+        if let Some(tarball) = builder.ensure(dist::TpdeCodegenBackend {
+            compilers: RustcPrivateCompilers::from_build_compiler(builder, self.build_compiler, self.target),
+            target: self.target
+        }) {
+            install_sh(builder, "rustc-codegen-tpde", self.build_compiler, Some(self.target), &tarball);
+        } else {
+            builder.info(
+                &format!("skipping Install CodegenBackend(\"Tpde\") stage{} ({})",
                          self.build_compiler.stage + 1, self.target),
             );
         }
