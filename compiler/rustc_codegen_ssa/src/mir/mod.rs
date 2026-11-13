@@ -230,11 +230,15 @@ pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
     let start_llbb = Bx::append_block(cx, llfn, "start");
     let mut start_bx = Bx::build(cx, start_llbb);
 
-    if mir::traversal::mono_reachable(&mir, tcx, instance).any(|(bb, block)| {
-        (block.is_cleanup && !nop_landing_pads.contains(bb))
-            || matches!(block.terminator().unwind(), Some(mir::UnwindAction::Terminate(_)))
-    }) {
-        start_bx.set_personality_fn(cx.eh_personality());
+    {
+        let _prof =
+            cx.tcx().prof.generic_activity_with_arg_recorder("reachable_for_personality", |_| {});
+        if mir::traversal::mono_reachable(&mir, tcx, instance).any(|(bb, block)| {
+            (block.is_cleanup && !nop_landing_pads.contains(bb))
+                || matches!(block.terminator().unwind(), Some(mir::UnwindAction::Terminate(_)))
+        }) {
+            start_bx.set_personality_fn(cx.eh_personality());
+        }
     }
 
     let cleanup_kinds = base::wants_new_eh_instructions(&tcx.sess.target)
@@ -280,11 +284,18 @@ pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
         fx.compute_per_local_var_debug_info(&mut start_bx).unzip();
     fx.per_local_var_debug_info = per_local_var_debug_info;
 
-    let mut traversal_order = traversal::mono_reachable_reverse_postorder(mir, tcx, instance);
+    let mut traversal_order = {
+        let _prof =
+            cx.tcx().prof.generic_activity_with_arg_recorder("build_traversal_order", |_| {});
+        traversal::mono_reachable_reverse_postorder(mir, tcx, instance)
+    };
 
     // Filter out blocks that won't be codegen'd because of nop_landing_pads optimization.
     // FIXME: We might want to integrate the nop_landing_pads analysis into mono reachability.
     {
+        let _prof =
+            cx.tcx().prof.generic_activity_with_arg_recorder("filter_not_codegen_blocks", |_| {});
+
         let mut reachable = DenseBitSet::new_empty(mir.basic_blocks.len());
         let mut to_visit = vec![mir::START_BLOCK];
         while let Some(next) = to_visit.pop() {
@@ -312,10 +323,15 @@ pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
         traversal_order.retain(|bb| reachable.contains(*bb));
     }
 
-    let memory_locals = analyze::non_ssa_locals(&fx, &traversal_order);
+    let memory_locals = {
+        let _prof = cx.tcx().prof.generic_activity_with_arg_recorder("find_non_ssa_locals", |_| {});
+        analyze::non_ssa_locals(&fx, &traversal_order)
+    };
 
     // Allocate variable and temp allocas
     let local_values = {
+        let _prof = cx.tcx().prof.generic_activity_with_arg_recorder("allocate_locals", |_| {});
+
         let args = arg_local_refs(&mut start_bx, &mut fx, &memory_locals);
 
         let mut allocate_local = |local: Local| {
@@ -359,7 +375,10 @@ pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
             .chain(mir.vars_and_temps_iter().map(allocate_local))
             .collect()
     };
-    fx.initialize_locals(local_values);
+    {
+        let _prof = cx.tcx().prof.generic_activity_with_arg_recorder("init_locals", |_| {});
+        fx.initialize_locals(local_values);
+    }
 
     // Apply debuginfo to the newly allocated locals.
     fx.debug_introduce_locals(&mut start_bx, consts_debug_info.unwrap_or_default());
@@ -368,20 +387,27 @@ pub fn codegen_mir<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
     // So drop the builder of `start_llbb` to avoid having two at the same time.
     drop(start_bx);
 
-    let mut unreached_blocks = DenseBitSet::new_filled(mir.basic_blocks.len());
-    // Codegen the body of each reachable block using our reverse postorder list.
-    for bb in traversal_order {
-        fx.codegen_block(bb);
-        unreached_blocks.remove(bb);
-    }
+    let mut unreached_blocks = {
+        let _prof = cx.tcx().prof.generic_activity_with_arg_recorder("actual_codegen", |_| {});
+        let mut unreached_blocks = DenseBitSet::new_filled(mir.basic_blocks.len());
+        // Codegen the body of each reachable block using our reverse postorder list.
+        for bb in traversal_order {
+            fx.codegen_block(bb);
+            unreached_blocks.remove(bb);
+        }
+        unreached_blocks
+    };
 
     // FIXME: These empty unreachable blocks are *mostly* a waste. They are occasionally
     // targets for a SwitchInt terminator, but the reimplementation of the mono-reachable
     // simplification in SwitchInt lowering sometimes misses cases that
     // mono_reachable_reverse_postorder manages to figure out.
     // The solution is to do something like post-mono GVN. But for now we have this hack.
-    for bb in unreached_blocks.iter() {
-        fx.codegen_block_as_unreachable(bb);
+    {
+        let _prof = cx.tcx().prof.generic_activity_with_arg_recorder("codegen_unreachable", |_| {});
+        for bb in unreached_blocks.iter() {
+            fx.codegen_block_as_unreachable(bb);
+        }
     }
 }
 
