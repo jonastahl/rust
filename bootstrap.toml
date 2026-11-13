@@ -2,14 +2,15 @@ profile = "dist"
 change-id = 163731
 
 [build]
-build-dir = "build-release" # keeps build/ (your dev build) untouched
 allocator = "jemalloc"      # official builds use jemalloc
 tools = ["cargo"]
 docs = false
+profiler = true
+metrics = true
 
 [rust]
 channel = "nightly"
-codegen-backends = ["llvm", "tpde"]
+codegen-backends = ["llvm", "tpde", "cranelift"]
 lto = "thin"
 codegen-units = 1
 
