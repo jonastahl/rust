@@ -42,10 +42,20 @@ impl<'a, 'tcx: 'a> MonoItemExt<'a, 'tcx> for MonoItem<'tcx> {
                 base::codegen_global_asm(cx, item_id);
             }
             MonoItem::Fn(instance) => {
-                let flags = cx.tcx().codegen_instance_attrs(instance.def).flags;
+                let flags = {
+                    let _prof_codegen_instance_attrs = cx
+                        .tcx()
+                        .prof
+                        .generic_activity_with_arg_recorder("codegen_instance_attrs", |_| {});
+                    cx.tcx().codegen_instance_attrs(instance.def).flags
+                };
                 if flags.contains(CodegenFnAttrFlags::NAKED) {
                     naked_asm::codegen_naked_asm::<Bx::CodegenCx>(cx, instance, item_data);
                 } else {
+                    let _prof_codegen_instance = cx
+                        .tcx()
+                        .prof
+                        .generic_activity_with_arg_recorder("codegen_instance", |_| {});
                     base::codegen_instance::<Bx>(cx, instance);
                 }
             }
