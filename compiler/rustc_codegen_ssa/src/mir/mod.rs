@@ -694,6 +694,8 @@ fn find_cold_blocks<'tcx>(
     tcx: TyCtxt<'tcx>,
     mir: &mir::Body<'tcx>,
 ) -> DenseBitSet<mir::BasicBlock> {
+    let _prof = tcx.prof.generic_activity_with_arg_recorder("find_col_blocks", |_| {});
+
     let local_decls = &mir.local_decls;
 
     let mut cold_blocks: DenseBitSet<mir::BasicBlock> =
