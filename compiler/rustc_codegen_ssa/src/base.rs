@@ -734,7 +734,11 @@ pub fn codegen_crate<
 
     // Run the monomorphization collector and partition the collected items into
     // codegen units.
-    let MonoItemPartitions { codegen_units, .. } = tcx.collect_and_partition_mono_items(());
+    let MonoItemPartitions { codegen_units, .. } = {
+        let _prof =
+            tcx.prof.generic_activity_with_arg_recorder("collect_and_partition_mono_items", |_| {});
+        tcx.collect_and_partition_mono_items(())
+    };
 
     // Force all codegen_unit queries so they are already either red or green
     // when compile_codegen_unit accesses them. We are not able to re-execute
