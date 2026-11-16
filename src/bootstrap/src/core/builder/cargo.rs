@@ -483,12 +483,22 @@ impl Cargo {
                 None
             };
 
+            let frame_pointer_cflags = if builder.config.rust_frame_pointers {
+                Some("-fno-omit-frame-pointer -mno-omit-leaf-frame-pointer")
+            } else {
+                None
+            };
+
             // Extend `CFLAGS_$TARGET` with our extra flags.
             let env = format!("CFLAGS_{triple_underscored}");
             let mut cflags = builder.cc_unhandled_cflags(target, CLang::C).join(" ");
             if let Some(lto_cflag) = lto_cflag {
                 cflags.push(' ');
                 cflags.push_str(lto_cflag);
+            }
+            if let Some(fp_cflags) = frame_pointer_cflags {
+                cflags.push(' ');
+                cflags.push_str(fp_cflags);
             }
             if let Ok(var) = std::env::var(&env) {
                 cflags.push(' ');
@@ -513,6 +523,10 @@ impl Cargo {
                 if let Some(lto_cflag) = lto_cflag {
                     cxxflags.push(' ');
                     cxxflags.push_str(lto_cflag);
+                }
+                if let Some(fp_cflags) = frame_pointer_cflags {
+                    cxxflags.push(' ');
+                    cxxflags.push_str(fp_cflags);
                 }
                 if let Ok(var) = std::env::var(&env) {
                     cxxflags.push(' ');
