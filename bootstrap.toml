@@ -13,6 +13,8 @@ channel = "nightly"
 codegen-backends = ["llvm", "tpde", "cranelift"]
 lto = "thin"
 codegen-units = 1
+frame-pointers = true
+debuginfo-level-rustc = "line-tables-only"
 
 [install]
 prefix = "rustc-tpde-release"
